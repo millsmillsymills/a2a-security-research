@@ -73,8 +73,10 @@ def select_agent(task: str, candidates: list[Candidate], *, mode: str = "replay"
         _record(key, raw)
     else:
         raise ValueError(f"unknown mode: {mode}")
-    # Normalize the model's free text to a candidate name.
+    # Normalize the model's free text to a candidate name. A no-match (refusal,
+    # apology, hallucinated name) must surface — silently returning candidates[0]
+    # would treat unparseable output as a confident selection.
     for c in candidates:
         if c.name.lower() in raw.lower():
             return c.name
-    return candidates[0].name
+    raise ValueError(f"judge output matched no candidate: {raw!r}")
