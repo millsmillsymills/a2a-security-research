@@ -1,0 +1,11 @@
+[project]
+name = "a2a-threat-model"
+version = "0.1.0"
+description = "Spec-verification probe (Task 0)."
+requires-python = ">=3.12"
+dependencies = ["a2a-sdk[http-server]"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.4.0",
+]
