@@ -25,15 +25,21 @@ manipulate agent task state without authorization.
 
 ## Control That Closes It
 
-1. **Callback-host allow-list** — the secure agent parses the callback URL and
-   rejects any hostname not in an explicit allowset. Loopback addresses
-   (`127.0.0.1`, `::1`) and metadata ranges never appear in the allowset, so SSRF
-   requests are returned HTTP 403 before any outbound fetch occurs.
+1. **Callback-host allow-list with DNS-rebinding protection** — the secure agent
+   parses the callback URL, enforces an `http`/`https` scheme allow-list, and
+   rejects any hostname not in an explicit allowset. It then resolves the
+   hostname and rejects the request if *any* resolved address is non-global
+   (loopback, link-local such as `169.254.169.254`, or private), returning HTTP
+   403 before any outbound fetch. The fetch is pinned to the validated IP (with
+   the original `Host` header preserved), so an allow-listed name that rebinds to
+   a loopback/metadata address between the check and the fetch cannot reach it.
 
-2. **HMAC-signed completions** — the completion endpoint requires an
-   `X-A2A-Signature` header containing an HMAC-SHA256 hex digest of the raw
-   request body, computed with a shared secret. Unsigned or forged requests are
-   rejected with HTTP 401; the task state is not modified.
+2. **Task-bound HMAC-signed completions** — the completion endpoint requires an
+   `X-A2A-Signature` header containing an HMAC-SHA256 hex digest computed over the
+   path `task_id` bound to the raw request body, with a shared secret. Unsigned,
+   forged, or wrong-task signatures are rejected with HTTP 401; the task state is
+   not modified. Binding the `task_id` stops a completion signed for one task from
+   being replayed against another.
 
 ## How to Run
 
