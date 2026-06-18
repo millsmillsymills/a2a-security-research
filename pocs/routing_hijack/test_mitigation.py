@@ -1,3 +1,5 @@
+import pytest
+
 from pocs.routing_hijack.judge import Candidate
 from pocs.routing_hijack.mitigation import mitigated_select
 
@@ -18,7 +20,5 @@ def test_mitigation_rejects_unpinned_attacker():
 
 
 def test_mitigation_raises_when_no_candidate_is_pinned():
-    import pytest
-
     with pytest.raises(ValueError):
         mitigated_select("convert 100 USD to EUR", [ATTACKER], allowlist=ALLOW, mode="replay")

@@ -41,4 +41,4 @@ The finding is model-dependent: `claude-haiku-4-5` is reliably hijacked by this 
 
 ## Prior Art
 
-SpiderLabs published an "Agent in the Middle" demonstration (LevelBlue blog) showing that manipulated tool descriptions can redirect an LLM agent's behavior — establishing this routing-hijack class as a real, demonstrated attack against production-grade agent frameworks. This PoC applies the same principle to the A2A Agent Card discovery flow.
+SpiderLabs published an "Agent in the Middle" demonstration (LevelBlue blog, April 2025) showing that manipulated tool descriptions can redirect an LLM agent's behavior — establishing this routing-hijack class as a real, demonstrated attack against production-grade agent frameworks. This PoC applies the same principle to the A2A Agent Card discovery flow.

@@ -64,12 +64,12 @@ def sign_card(card: t.AgentCard, private_key: Ed25519PrivateKey, kid: str) -> t.
         # header (unprotected) is optional; omit or use for key-rotation hints
     )
 
-    # AgentCard is a protobuf message — create a copy with signatures populated.
-    # For cards with nested messages, use the idiomatic deep copy:
-    #   signed = type(card)(); signed.CopyFrom(card)
-    import copy
-    signed = copy.copy(card)
-    signed.signatures.append(sig_obj)  # type: ignore[attr-defined]
+    # AgentCard is a protobuf message. Use CopyFrom for a true deep copy — a
+    # shallow copy.copy() shares the repeated `signatures` field and would
+    # mutate the caller's card on append.
+    signed = type(card)()
+    signed.CopyFrom(card)
+    signed.signatures.append(sig_obj)
     return signed
 ```
 
