@@ -6,6 +6,7 @@ with no ANTHROPIC_API_KEY. `mode="live"` calls Claude and updates the cassette.
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -57,6 +58,25 @@ def _ask_claude(prompt: str) -> str:
     return next(b.text for b in resp.content if b.type == "text").strip()
 
 
+def _match_candidate(raw: str, candidates: list[Candidate]) -> str:
+    """Resolve the judge's free text to exactly one candidate name.
+
+    Match on whole-token boundaries, not substrings: an `\\b`-bounded name will
+    not match inside a longer one (``ellingson_fx`` does not match
+    ``ellingson_fx_eu``), so a prefix collision can no longer hand back the wrong
+    agent. Output that maps to no candidate or to more than one must raise — in a
+    routing PoC the selection is the security boundary, so unparseable or
+    ambiguous output cannot be treated as a confident pick.
+    """
+    names = [c.name for c in candidates]
+    matched = [n for n in names if re.search(rf"\b{re.escape(n)}\b", raw, re.IGNORECASE)]
+    if len(matched) == 1:
+        return matched[0]
+    if matched:
+        raise ValueError(f"judge output ambiguously matched {matched} in {names}: {raw!r}")
+    raise ValueError(f"judge output matched no candidate in {names}: {raw!r}")
+
+
 def select_agent(task: str, candidates: list[Candidate], *, mode: str = "replay") -> str:
     prompt = _build_prompt(task, candidates)
     key = _key(task, prompt)
@@ -70,13 +90,11 @@ def select_agent(task: str, candidates: list[Candidate], *, mode: str = "replay"
         raw = cassette[key]
     elif mode == "live":
         raw = _ask_claude(prompt)
-        _record(key, raw)
     else:
         raise ValueError(f"unknown mode: {mode}")
-    # Normalize the model's free text to a candidate name. A no-match (refusal,
-    # apology, hallucinated name) must surface — silently returning candidates[0]
-    # would treat unparseable output as a confident selection.
-    for c in candidates:
-        if c.name.lower() in raw.lower():
-            return c.name
-    raise ValueError(f"judge output matched no candidate: {raw!r}")
+    # Validate before recording: a live no-match must not persist a poison
+    # cassette entry that then raises forever on replay.
+    choice = _match_candidate(raw, candidates)
+    if mode == "live":
+        _record(key, raw)
+    return choice
