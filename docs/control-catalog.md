@@ -386,51 +386,71 @@ def issue_delegated_token(
 ### Callback host allow-list (matching `pocs/webhook_ssrf/mitigation.py`)
 
 Parse the caller-supplied callback URL and reject any hostname not in an
-explicit allowset. Loopback addresses, private ranges, and cloud metadata
-endpoints are never permitted.
+explicit allowset. A hostname check **alone is not sufficient**: an allow-listed
+name can resolve (or rebind) to a loopback/link-local/private address, so the
+host-string check passes and the subsequent fetch still reaches the
+metadata/loopback endpoint (DNS rebinding, a check-then-use gap). The control
+must also constrain the scheme, resolve the host and reject non-global resolved
+addresses, and **pin the fetch to the validated IP** so a rebind between the
+check and the fetch cannot take effect.
 
 ```python
+import ipaddress
+import socket
 from urllib.parse import urlparse
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+ALLOWED_SCHEMES = {"http", "https"}
 ALLOWED_CALLBACK_HOSTS: set[str] = {
     "webhooks.example.com",
     "events.partner.com",
 }
 
-# Never allow these regardless of allow-list membership
-BLOCKED_HOSTNAMES: set[str] = {
-    "localhost",
-    "127.0.0.1",
-    "::1",
-    "169.254.169.254",  # AWS/GCP/Azure metadata
-    "metadata.google.internal",
-}
+
+def resolve_pinned_ip(hostname: str, port: int) -> str | None:
+    """Return one global IP to connect to, or None if the host does not resolve
+    or any resolved address is non-global (loopback, link-local, private)."""
+    try:
+        infos = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return None
+    addresses = {str(info[4][0]) for info in infos}
+    if not addresses or any(not ipaddress.ip_address(ip).is_global for ip in addresses):
+        return None
+    return next(iter(addresses))
 
 
 async def webhook_handler(request: Request) -> JSONResponse:
     body = await request.json()
-    callback_url = body.get("callback_url", "")
-    host = urlparse(callback_url).hostname or ""
+    parsed = urlparse(body.get("callback_url", ""))
+    host = parsed.hostname or ""
+    if parsed.scheme not in ALLOWED_SCHEMES or host not in ALLOWED_CALLBACK_HOSTS:
+        return JSONResponse({"error": "callback not allow-listed"}, status_code=403)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    ip = resolve_pinned_ip(host, port)
+    if ip is None:
+        return JSONResponse({"error": "host resolves to a non-global address"}, status_code=403)
 
-    if host in BLOCKED_HOSTNAMES or host not in ALLOWED_CALLBACK_HOSTS:
-        return JSONResponse(
-            {"error": "callback host not allow-listed"}, status_code=403
-        )
-
-    # Proceed with the validated callback URL
+    pinned = parsed._replace(netloc=f"{ip}:{port}").geturl()
+    # Fetch `pinned` with headers={"Host": host} so the connection cannot rebind.
     ...
 ```
 
 The `pocs/webhook_ssrf/mitigation.py` `secure_app` function uses this exact
-pattern: `urlparse(body["callback_url"]).hostname` checked against
-`allowed_hosts`; a 403 is returned before any outbound request is made.
+pattern: scheme and host allow-list, then `resolve_pinned_ip` rejects any
+hostname that resolves to a non-global address, and the outbound fetch is pinned
+to the validated IP with the original `Host` header preserved. A 403 is returned
+before any outbound request is made.
 
 ### HMAC-signed task-completion callbacks (matching `pocs/webhook_ssrf/mitigation.py`)
 
 Require an `X-A2A-Signature` header on every state-changing callback. Reject
-unsigned or incorrectly signed requests before modifying any state.
+unsigned or incorrectly signed requests before modifying any state. Bind the
+path `task_id` into the signed material — signing the body alone authenticates
+"someone who knows the secret produced *a* completion," not "a completion for
+*this* task," so a valid signature for one task could otherwise be replayed
+against any other.
 
 ```python
 import hmac
@@ -440,27 +460,29 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 
-def sign_body(body: bytes, secret: bytes) -> str:
-    """Compute HMAC-SHA256 hex digest over the raw request body."""
-    return hmac.new(secret, body, sha256).hexdigest()
+def sign(task_id: str, body: bytes, secret: bytes) -> str:
+    """HMAC-SHA256 over the task_id bound to the raw request body."""
+    return hmac.new(secret, task_id.encode() + b"\n" + body, sha256).hexdigest()
 
 
 async def complete_handler(request: Request, secret: bytes) -> JSONResponse:
     raw = await request.body()
+    task_id = request.path_params["task_id"]
     provided = request.headers.get("X-A2A-Signature", "")
 
-    if not hmac.compare_digest(provided, sign_body(raw, secret)):
+    if not hmac.compare_digest(provided, sign(task_id, raw, secret)):
         return JSONResponse({"error": "invalid signature"}, status_code=401)
 
     # Signature verified — safe to update task state
-    task_id = request.path_params["task_id"]
     status = json.loads(raw)["status"]
     # ... persist status ...
     return JSONResponse({"task": task_id, "status": status})
 ```
 
 The `pocs/webhook_ssrf/mitigation.py` `secure_app` uses `hmac.new(key, msg, digestmod)` with
-`compare_digest` for constant-time comparison; this implementation matches that exactly.
+`compare_digest` for constant-time comparison and binds `task_id` into the signed
+material; this implementation matches that exactly. A signature minted for one
+task is rejected on any other.
 
 > **Note:** Always use `hmac.compare_digest` for signature comparison — never `==` on
 > signature strings.
