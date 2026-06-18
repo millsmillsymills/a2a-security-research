@@ -64,7 +64,9 @@ def sign_card(card: t.AgentCard, private_key: Ed25519PrivateKey, kid: str) -> t.
         # header (unprotected) is optional; omit or use for key-rotation hints
     )
 
-    # AgentCard is a protobuf message — create a copy with signatures populated
+    # AgentCard is a protobuf message — create a copy with signatures populated.
+    # For cards with nested messages, use the idiomatic deep copy:
+    #   signed = type(card)(); signed.CopyFrom(card)
     import copy
     signed = copy.copy(card)
     signed.signatures.append(sig_obj)  # type: ignore[attr-defined]
@@ -274,7 +276,7 @@ card = t.AgentCard(
     capabilities=t.AgentCapabilities(streaming=False),
     # security_requirements references scheme names declared in security_schemes
     security_requirements=[
-        t.SecurityRequirement(schemes={"bearer_oauth2": t.StringList(values=[])})
+        t.SecurityRequirement(schemes={"bearer_oauth2": t.StringList(list=[])})
     ],
     skills=[],
 )
@@ -314,7 +316,12 @@ key; the token's `cnf.jkt` claim binds it to that key's thumbprint.
 import hashlib, base64
 
 def validate_dpop_binding(dpop_proof_jwt: str, access_token: str) -> bool:
-    """Return True if the DPoP proof is valid and matches the access token binding."""
+    """Return True if the DPoP proof is valid and matches the access token binding.
+
+    Illustrative binding check only — not production-complete. A full RFC 9449
+    implementation must also verify the DPoP proof JWT signature, and validate
+    the `htm`, `htu`, and `iat`/`jti` freshness claims.
+    """
     # Decode the DPoP proof header to get the public key
     header = jwt.get_unverified_header(dpop_proof_jwt)
     jwk = header.get("jwk")
@@ -340,6 +347,8 @@ Never forward the orchestrator's full token to a sub-agent. Issue a new,
 narrowly scoped token for each outbound call:
 
 ```python
+import secrets
+
 def issue_delegated_token(
     parent_claims: dict,
     sub_agent_audience: str,
@@ -450,13 +459,10 @@ async def complete_handler(request: Request, secret: bytes) -> JSONResponse:
     return JSONResponse({"task": task_id, "status": status})
 ```
 
-The `pocs/webhook_ssrf/mitigation.py` `secure_app` uses `hmac.new` (not
-`hmac.new` — note: the PoC uses `hmac.new`, standard library spelling) with
-`compare_digest` for constant-time comparison; this implementation matches that
-exactly.
+The `pocs/webhook_ssrf/mitigation.py` `secure_app` uses `hmac.new(key, msg, digestmod)` with
+`compare_digest` for constant-time comparison; this implementation matches that exactly.
 
-> **Note on `hmac.new`:** The standard library spelling is `hmac.new(key, msg,
-> digestmod)`. Always use `hmac.compare_digest` for comparison — never `==` on
+> **Note:** Always use `hmac.compare_digest` for signature comparison — never `==` on
 > signature strings.
 
 ---
