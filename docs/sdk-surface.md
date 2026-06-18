@@ -29,6 +29,8 @@ body = json_format.MessageToJson(card)  # NOT card.model_dump_json()
 | `AgentSkill` | `id`, `name`, `description`, `tags`, `examples`, `input_modes`, `output_modes`, `security_requirements` |
 | `AgentCapabilities` | `streaming`, `push_notifications`, `extensions`, `extended_agent_card` |
 | `AgentCardSignature` | `protected`, `signature`, `header` |
+| `SecurityRequirement` | `schemes` (proto map: string → `StringList`) |
+| `StringList` | `list` (repeated string) |
 
 **`AgentCard` has no `protocol_version` field** — set version per interface (`AgentInterface.protocol_version`).
 
