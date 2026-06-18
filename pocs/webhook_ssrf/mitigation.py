@@ -61,7 +61,8 @@ def secure_app(*, allowed_hosts: set[str], secret: bytes) -> Starlette:
             return JSONResponse(
                 {"error": "callback host resolves to a non-global address"}, status_code=403
             )
-        pinned_url = parsed._replace(netloc=f"{ip}:{port}").geturl()
+        netloc = f"[{ip}]:{port}" if ipaddress.ip_address(ip).version == 6 else f"{ip}:{port}"
+        pinned_url = parsed._replace(netloc=netloc).geturl()
         resp = httpx.get(pinned_url, headers={"Host": host}, timeout=2.0)
         return JSONResponse({"fetched": resp.text})
 

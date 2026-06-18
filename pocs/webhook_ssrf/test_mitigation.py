@@ -25,8 +25,10 @@ def _client() -> TestClient:
 
 
 def _addrinfo(ip: str):
+    family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+
     def fake(host, port, *args, **kwargs):
-        return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
+        return [(family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (ip, port))]
 
     return fake
 
@@ -67,6 +69,27 @@ def test_allow_listed_host_is_fetched(monkeypatch):
     assert resp.json()["fetched"] == "callback-ack"
     assert "93.184.216.34" in captured["url"]  # connection pinned to the validated IP
     assert captured["host_header"] == "api.ellingson.example"
+
+
+def test_allow_listed_host_resolving_to_ipv6_is_fetched(monkeypatch):
+    captured = {}
+
+    def fake_get(url, headers, timeout):
+        captured["url"] = url
+
+        class R:
+            text = "callback-ack"
+
+        return R()
+
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo("2606:2800:220:1:248:1893:25c8:1946"))
+    monkeypatch.setattr("pocs.webhook_ssrf.mitigation.httpx.get", fake_get)
+    resp = _client().post(
+        "/tasks/t1/webhook",
+        json={"callback_url": "http://api.ellingson.example/hook"},
+    )
+    assert resp.status_code == 200
+    assert captured["url"] == "http://[2606:2800:220:1:248:1893:25c8:1946]:80/hook"
 
 
 def test_dns_rebinding_to_loopback_is_blocked(monkeypatch):
