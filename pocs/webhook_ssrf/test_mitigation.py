@@ -213,7 +213,11 @@ def test_unresolvable_allow_listed_host_is_blocked(monkeypatch):
 
 def test_resolve_pinned_ip_fails_closed_on_resolution_errors(monkeypatch):
     for exc in (socket.gaierror("boom"), UnicodeError("over-long IDNA label")):
-        monkeypatch.setattr("socket.getaddrinfo", lambda *a, _e=exc, **k: (_ for _ in ()).throw(_e))
+
+        def raise_exc(*a, _e=exc, **k):
+            raise _e
+
+        monkeypatch.setattr("socket.getaddrinfo", raise_exc)
         assert _resolve_pinned_ip("api.ellingson.example", 80) is None
 
 
