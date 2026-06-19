@@ -432,7 +432,8 @@ async def webhook_handler(request: Request) -> JSONResponse:
     if ip is None:
         return JSONResponse({"error": "host resolves to a non-global address"}, status_code=403)
 
-    pinned = parsed._replace(netloc=f"{ip}:{port}").geturl()
+    netloc = f"[{ip}]:{port}" if ipaddress.ip_address(ip).version == 6 else f"{ip}:{port}"
+    pinned = parsed._replace(netloc=netloc).geturl()
     # Fetch `pinned` with headers={"Host": host} so the connection cannot rebind.
     ...
 ```
