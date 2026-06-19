@@ -60,3 +60,50 @@ def test_replay_miss_raises_keyerror(monkeypatch):
 def test_unknown_mode_raises_valueerror():
     with pytest.raises(ValueError, match="unknown mode"):
         select_agent("convert 100 USD to EUR", [BENIGN, ATTACKER], mode="bogus")
+
+
+# Prefix-overlapping names: ``ellingson_fx`` is a substring of ``ellingson_fx_eu``.
+# Substring matching would let the shorter name win by iteration order; whole-token
+# matching must return whichever the judge actually named.
+_FX = Candidate(name="ellingson_fx", card_text="USD/EUR rates.", identity="repo:ellingson/fx")
+_FX_EU = Candidate(
+    name="ellingson_fx_eu", card_text="EU-domiciled rates.", identity="repo:ellingson/eu"
+)
+
+
+def test_prefix_overlap_returns_the_longer_name(monkeypatch):
+    monkeypatch.setattr(judge, "_load_cassette", lambda: _AnyKey("ellingson_fx_eu"))
+    assert select_agent("convert", [_FX, _FX_EU], mode="replay") == "ellingson_fx_eu"
+
+
+def test_prefix_overlap_returns_the_shorter_name(monkeypatch):
+    monkeypatch.setattr(judge, "_load_cassette", lambda: _AnyKey("ellingson_fx"))
+    assert select_agent("convert", [_FX, _FX_EU], mode="replay") == "ellingson_fx"
+
+
+def test_output_naming_two_candidates_raises(monkeypatch):
+    monkeypatch.setattr(
+        judge, "_load_cassette", lambda: _AnyKey("either fastfx_premium or ellingson_fx")
+    )
+    with pytest.raises(ValueError, match="ambiguously matched"):
+        select_agent("convert", [BENIGN, ATTACKER], mode="replay")
+
+
+def test_non_word_delimited_overlap_fails_closed(monkeypatch):
+    # Names overlapping on a non-word char (the hyphen between `a` and `b`) both
+    # match the \b boundary, so the match is ambiguous. It must raise, never
+    # silently return the shorter `agent-a` when the judge said `agent-a-b`.
+    short = Candidate(name="agent-a", card_text="A.", identity="repo:x/a")
+    long = Candidate(name="agent-a-b", card_text="A-B.", identity="repo:x/ab")
+    monkeypatch.setattr(judge, "_load_cassette", lambda: _AnyKey("agent-a-b"))
+    with pytest.raises(ValueError, match="ambiguously matched"):
+        select_agent("convert", [short, long], mode="replay")
+
+
+def test_live_no_match_does_not_record_poison_entry(monkeypatch):
+    recorded = {}
+    monkeypatch.setattr(judge, "_ask_claude", lambda _prompt: "I'm sorry, I can't pick one.")
+    monkeypatch.setattr(judge, "_record", lambda key, value: recorded.__setitem__(key, value))
+    with pytest.raises(ValueError, match="matched no candidate"):
+        select_agent("convert", [BENIGN, ATTACKER], mode="live")
+    assert recorded == {}  # nothing persisted, so replay won't raise forever
