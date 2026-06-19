@@ -32,7 +32,9 @@ def _resolve_pinned_ip(hostname: str, port: int) -> str | None:
     gap between the allow-list check and the outbound request."""
     try:
         infos = socket.getaddrinfo(hostname, port, proto=socket.IPPROTO_TCP)
-    except socket.gaierror:
+    except (OSError, UnicodeError):
+        # gaierror (subclass of OSError) for an unresolvable host, plus UnicodeError
+        # for an over-long IDNA label — both fail closed rather than escaping as a 500.
         return None
     addresses = {str(info[4][0]) for info in infos}
     if not addresses or any(not ipaddress.ip_address(ip).is_global for ip in addresses):
@@ -63,7 +65,10 @@ def secure_app(*, allowed_hosts: set[str], secret: bytes) -> Starlette:
             )
         netloc = f"[{ip}]:{port}" if ipaddress.ip_address(ip).version == 6 else f"{ip}:{port}"
         pinned_url = parsed._replace(netloc=netloc).geturl()
-        resp = httpx.get(pinned_url, headers={"Host": host}, timeout=2.0)
+        try:
+            resp = httpx.get(pinned_url, headers={"Host": host}, timeout=2.0)
+        except httpx.HTTPError as exc:
+            return JSONResponse({"error": f"callback fetch failed: {exc}"}, status_code=502)
         return JSONResponse({"fetched": resp.text})
 
     async def complete(request: Request) -> JSONResponse:
@@ -72,7 +77,13 @@ def secure_app(*, allowed_hosts: set[str], secret: bytes) -> Starlette:
         provided = request.headers.get("X-A2A-Signature", "")
         if not hmac.compare_digest(provided, sign(task_id, raw, secret)):
             return JSONResponse({"error": "invalid signature"}, status_code=401)
-        TASKS[task_id] = json.loads(raw)["status"]
+        try:
+            status = json.loads(raw)["status"]
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return JSONResponse(
+                {"error": "completion body must be JSON with a 'status' field"}, status_code=400
+            )
+        TASKS[task_id] = status
         return JSONResponse({"task": task_id, "status": TASKS[task_id]})
 
     return Starlette(
