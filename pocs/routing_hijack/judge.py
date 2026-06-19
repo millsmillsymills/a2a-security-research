@@ -61,12 +61,17 @@ def _ask_claude(prompt: str) -> str:
 def _match_candidate(raw: str, candidates: list[Candidate]) -> str:
     """Resolve the judge's free text to exactly one candidate name.
 
-    Match on whole-token boundaries, not substrings: an `\\b`-bounded name will
-    not match inside a longer one (``ellingson_fx`` does not match
-    ``ellingson_fx_eu``), so a prefix collision can no longer hand back the wrong
-    agent. Output that maps to no candidate or to more than one must raise — in a
-    routing PoC the selection is the security boundary, so unparseable or
-    ambiguous output cannot be treated as a confident pick.
+    Match on whole-token boundaries, not substrings. For names that overlap on a
+    word character — the realistic case here, since agent names are identifiers
+    like ``ellingson_fx`` vs ``ellingson_fx_eu`` — the ``\\b`` boundary lands
+    between ``fx`` and ``_eu`` (``_`` is a word char), so the shorter name does
+    not match inside the longer one and the correct candidate is returned. For
+    names that overlap on a *non-word* character (``agent-a`` vs ``agent-a-b``),
+    ``\\b`` matches both, so this raises an ambiguity error rather than guessing
+    — it never silently hands back the wrong agent. Output that maps to no
+    candidate or to more than one always raises: in a routing PoC the selection
+    is the security boundary, so unparseable or ambiguous output cannot be
+    treated as a confident pick.
     """
     names = [c.name for c in candidates]
     matched = [n for n in names if re.search(rf"\b{re.escape(n)}\b", raw, re.IGNORECASE)]

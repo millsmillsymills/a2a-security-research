@@ -89,6 +89,17 @@ def test_output_naming_two_candidates_raises(monkeypatch):
         select_agent("convert", [BENIGN, ATTACKER], mode="replay")
 
 
+def test_non_word_delimited_overlap_fails_closed(monkeypatch):
+    # Names overlapping on a non-word char (the hyphen between `a` and `b`) both
+    # match the \b boundary, so the match is ambiguous. It must raise, never
+    # silently return the shorter `agent-a` when the judge said `agent-a-b`.
+    short = Candidate(name="agent-a", card_text="A.", identity="repo:x/a")
+    long = Candidate(name="agent-a-b", card_text="A-B.", identity="repo:x/ab")
+    monkeypatch.setattr(judge, "_load_cassette", lambda: _AnyKey("agent-a-b"))
+    with pytest.raises(ValueError, match="ambiguously matched"):
+        select_agent("convert", [short, long], mode="replay")
+
+
 def test_live_no_match_does_not_record_poison_entry(monkeypatch):
     recorded = {}
     monkeypatch.setattr(judge, "_ask_claude", lambda _prompt: "I'm sorry, I can't pick one.")
