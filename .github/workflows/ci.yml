@@ -24,4 +24,20 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ty check
       - run: uv run pytest
+      - run: uv run pip-audit
+      - run: uv run zizmor --offline .github/
       - run: make demo
+
+  workflow-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version: stable
+      - run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - run: actionlint -color
