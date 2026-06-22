@@ -8,9 +8,11 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`CONTEXT-MAP.md`** at the repo root if it exists — it points at one `CONTEXT.md` per context. Read each one relevant to the topic.
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
 
-If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The producer skill (`/grill-with-docs`) creates them lazily when terms or decisions actually get resolved.
+This repo does not currently ship any of these files. If they're absent, **proceed silently** — don't flag their absence or suggest creating them upfront. Treat this doc as the convention to follow if and when domain docs are added.
 
 ## File structure
+
+The trees below are illustrative layouts (with placeholder filenames), not the current repo contents.
 
 Single-context repo (most repos):
 
@@ -18,8 +20,8 @@ Single-context repo (most repos):
 /
 ├── CONTEXT.md
 ├── docs/adr/
-│   ├── 0001-event-sourced-orders.md
-│   └── 0002-postgres-for-write-model.md
+│   ├── 0001-some-decision.md
+│   └── 0002-another-decision.md
 └── src/
 ```
 
@@ -30,10 +32,10 @@ Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
 ├── CONTEXT-MAP.md
 ├── docs/adr/                          ← system-wide decisions
 └── src/
-    ├── ordering/
+    ├── <context-a>/
     │   ├── CONTEXT.md
     │   └── docs/adr/                  ← context-specific decisions
-    └── billing/
+    └── <context-b>/
         ├── CONTEXT.md
         └── docs/adr/
 ```
@@ -42,10 +44,10 @@ Multi-context repo (presence of `CONTEXT-MAP.md` at the root):
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
 
-If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
+If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap worth resolving before you lean on the term.
 
 ## Flag ADR conflicts
 
 If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-> _Contradicts ADR-0007 (event-sourced orders) — but worth reopening because…_
+> _Contradicts ADR-NNNN (short title) — but worth reopening because…_
