@@ -10,6 +10,8 @@ How the engineering skills should consume this repo's domain documentation when 
 
 This repo does not currently ship any of these files. If they're absent, **proceed silently** — don't flag their absence or suggest creating them upfront. Treat this doc as the convention to follow if and when domain docs are added.
 
+These docs are produced by the user-invocable `/grill-with-docs` skill (manual invocation only — agents do not auto-create them).
+
 ## File structure
 
 The trees below are illustrative layouts (with placeholder filenames), not the current repo contents.
