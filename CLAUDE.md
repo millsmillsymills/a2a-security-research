@@ -10,4 +10,4 @@ Five canonical triage roles mapped to default label names; `wontfix` already exi
 
 ### Domain docs
 
-Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Convention for if/when domain docs are added: single-context, one `CONTEXT.md` + `docs/adr/` at the repo root. None exist yet — agents proceed silently when absent. See `docs/agents/domain.md`.
