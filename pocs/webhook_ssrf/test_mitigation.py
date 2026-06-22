@@ -258,6 +258,40 @@ def test_allow_listed_host_resolving_to_metadata_ip_is_blocked(monkeypatch):
     assert called["n"] == 0
 
 
+def test_allow_listed_host_resolving_to_nat64_internal_is_blocked(monkeypatch):
+    # NAT64 (RFC 6052 well-known prefix 64:ff9b::/96) embeds an IPv4 in the low 32
+    # bits. ipaddress.is_global reports the NAT64 address as global, so a host
+    # behind a NAT64 gateway would route 64:ff9b::7f00:1 to 127.0.0.1 — an SSRF
+    # bypass unless the embedded IPv4 is also checked.
+    called = {"n": 0}
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo("64:ff9b::7f00:1"))  # 127.0.0.1
+    monkeypatch.setattr(
+        "pocs.webhook_ssrf.mitigation.httpx.get",
+        lambda *a, **k: called.__setitem__("n", called["n"] + 1),
+    )
+    resp = _client().post(
+        "/tasks/t1/webhook",
+        json={"callback_url": "http://api.ellingson.example/hook"},
+    )
+    assert resp.status_code == 403
+    assert called["n"] == 0
+
+
+def test_allow_listed_host_resolving_to_nat64_metadata_is_blocked(monkeypatch):
+    called = {"n": 0}
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo("64:ff9b::a9fe:a9fe"))  # 169.254.169.254
+    monkeypatch.setattr(
+        "pocs.webhook_ssrf.mitigation.httpx.get",
+        lambda *a, **k: called.__setitem__("n", called["n"] + 1),
+    )
+    resp = _client().post(
+        "/tasks/t1/webhook",
+        json={"callback_url": "http://api.ellingson.example/latest/meta-data/"},
+    )
+    assert resp.status_code == 403
+    assert called["n"] == 0
+
+
 def test_malformed_webhook_body_is_clean_4xx():
     resp = _client().post(
         "/tasks/t1/webhook",

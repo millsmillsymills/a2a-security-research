@@ -30,7 +30,10 @@ manipulate agent task state without authorization.
    rejects any hostname not in an explicit allowset. It then resolves the
    hostname and rejects the request if *any* resolved address is non-global
    (loopback, link-local such as `169.254.169.254`, or private), returning HTTP
-   403 before any outbound fetch. The fetch is pinned to the validated IP (with
+   403 before any outbound fetch. IPv6 addresses that embed an IPv4 — IPv4-mapped
+   (`::ffff:…`) and the NAT64 well-known prefix (`64:ff9b::/96`) — are vetted by
+   their embedded IPv4, since a NAT64 gateway would otherwise route an
+   apparently-global address to an internal host. The fetch is pinned to the validated IP (with
    the original `Host` header preserved), so an allow-listed name that rebinds to
    a loopback/metadata address between the check and the fetch cannot reach it.
 

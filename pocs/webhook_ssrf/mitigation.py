@@ -17,6 +17,25 @@ from starlette.routing import Route
 from pocs.webhook_ssrf.agent import TASKS
 
 ALLOWED_SCHEMES = {"http", "https"}
+# RFC 6052 well-known prefix: a NAT64 gateway maps these to the IPv4 in the low
+# 32 bits, so an internal IPv4 reached this way must be vetted as that IPv4.
+_NAT64_WELL_KNOWN = ipaddress.ip_network("64:ff9b::/96")
+
+
+def _is_safe_global(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """An address is safe only if it is global *and* any IPv4 it embeds (via the
+    IPv4-mapped form or the NAT64 well-known prefix) is itself global. NAT64
+    addresses report ``is_global`` even when they tunnel to a loopback/metadata
+    IPv4, so the embedded address is the real check."""
+    if not addr.is_global:
+        return False
+    if isinstance(addr, ipaddress.IPv6Address):
+        embedded = addr.ipv4_mapped
+        if embedded is None and addr in _NAT64_WELL_KNOWN:
+            embedded = ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+        if embedded is not None and not embedded.is_global:
+            return False
+    return True
 
 
 def sign(task_id: str, body: bytes, secret: bytes) -> str:
@@ -37,7 +56,7 @@ def _resolve_pinned_ip(hostname: str, port: int) -> str | None:
         # for an over-long IDNA label — both fail closed rather than escaping as a 500.
         return None
     addresses = {str(info[4][0]) for info in infos}
-    if not addresses or any(not ipaddress.ip_address(ip).is_global for ip in addresses):
+    if not addresses or any(not _is_safe_global(ipaddress.ip_address(ip)) for ip in addresses):
         return None
     return next(iter(addresses))
 
