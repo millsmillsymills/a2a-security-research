@@ -292,6 +292,75 @@ def test_allow_listed_host_resolving_to_nat64_metadata_is_blocked(monkeypatch):
     assert called["n"] == 0
 
 
+@pytest.mark.parametrize(
+    "resolved",
+    [
+        "64:ff9b::a00:1",  # NAT64 -> 10.0.0.1
+        "64:ff9b::c0a8:1",  # NAT64 -> 192.168.0.1
+        "64:ff9b::ac10:1",  # NAT64 -> 172.16.0.1
+        "::ffff:0:7f00:1",  # IPv4-translatable (SIIT, ::ffff:0:0:0/96) -> 127.0.0.1
+        "::a9fe:a9fe",  # IPv4-compatible (::/96) -> 169.254.169.254 metadata
+        "::ffff:169.254.169.254",  # IPv4-mapped -> metadata
+    ],
+)
+def test_allow_listed_host_resolving_to_embedded_internal_is_blocked(monkeypatch, resolved):
+    # Every IPv6 form that carries an internal IPv4 in its low 32 bits must be
+    # rejected by the embedded address, not waved through on the outer is_global.
+    called = {"n": 0}
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo(resolved))
+    monkeypatch.setattr(
+        "pocs.webhook_ssrf.mitigation.httpx.get",
+        lambda *a, **k: called.__setitem__("n", called["n"] + 1),
+    )
+    resp = _client().post(
+        "/tasks/t1/webhook",
+        json={"callback_url": "http://api.ellingson.example/hook"},
+    )
+    assert resp.status_code == 403
+    assert called["n"] == 0
+
+
+def test_allow_listed_host_resolving_to_nat64_global_is_fetched(monkeypatch):
+    # Counterpart to the blocked NAT64 cases: a NAT64 address embedding a genuinely
+    # global IPv4 must still be allowed, or the embedded-IPv4 guard could be
+    # mutated to reject unconditionally and the deny-only tests would not notice.
+    captured = {}
+
+    def fake_get(url, headers, timeout):
+        captured["url"] = url
+
+        class R:
+            text = "callback-ack"
+
+        return R()
+
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo("64:ff9b::5db8:d822"))  # 93.184.216.34
+    monkeypatch.setattr("pocs.webhook_ssrf.mitigation.httpx.get", fake_get)
+    resp = _client().post(
+        "/tasks/t1/webhook",
+        json={"callback_url": "http://api.ellingson.example/hook"},
+    )
+    assert resp.status_code == 200
+    assert captured["url"] == "http://[64:ff9b::5db8:d822]:80/hook"
+
+
+@pytest.mark.parametrize("resolved", ["100.64.0.1", "0.0.0.0", "192.0.0.1"])
+def test_resolve_pinned_ip_rejects_non_global_non_private_ranges(monkeypatch, resolved):
+    # Pin the safety boundary to intent: CGNAT (100.64/10), "this network"
+    # (0.0.0.0/8) and IETF protocol assignments (192.0.0.0/24) are non-global and
+    # must be rejected, so a future ipaddress reclassification cannot silently
+    # move the boundary without a failing test.
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo(resolved))
+    assert _resolve_pinned_ip("api.ellingson.example", 80) is None
+
+
+def test_resolve_pinned_ip_fails_closed_on_unparseable_resolved_address(monkeypatch):
+    # A resolver string carrying a zone/scope suffix is not a parseable IP; it must
+    # fail closed (None -> 403), not raise ValueError as an uncaught 500.
+    monkeypatch.setattr("socket.getaddrinfo", _addrinfo("fe80::1%eth0"))
+    assert _resolve_pinned_ip("api.ellingson.example", 80) is None
+
+
 def test_malformed_webhook_body_is_clean_4xx():
     resp = _client().post(
         "/tasks/t1/webhook",
