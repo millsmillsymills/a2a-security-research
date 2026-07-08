@@ -55,7 +55,10 @@ attacker-controlled infrastructure. The demo shows `claude-haiku-4-5` reliably
 hijacked, followed by an identity-pinning mitigation that makes the selection
 deterministic and tamper-proof. Model-dependent: `claude-opus-4-8` resists this
 injection class — documented as a defense-in-depth variable, not a substitute
-for identity pinning.
+for identity pinning. The Opus contrast was observed manually against the live
+model and is **not** reproduced by the offline demo: the hermetic cassette holds
+only the hijacked (`claude-haiku-4-5`) response, and `make demo` runs without an
+API key.
 
 **Runs hermetically via a pre-recorded cassette (`pocs/routing_hijack/cassette.json`) — no API key required.** To re-record against the live model: set `ANTHROPIC_API_KEY` and call `select_agent(..., mode="live")` in place of `mode="replay"`.
 
@@ -83,7 +86,7 @@ demo process exits; nothing persists after the run.
 SpiderLabs (Trustwave) published an "Agent in the Middle" demonstration
 (LevelBlue blog, April 2025) showing that manipulated tool descriptions can
 redirect an LLM agent's behavior — establishing this routing-hijack class as
-real and exploitable against production-grade agent frameworks. PoC #1 applies
+real and exploitable against agents built on the A2A SDK. PoC #1 applies
 the same principle to the A2A Agent Card discovery flow, adds an
 identity-pinning mitigation, and documents model-specific susceptibility as an
 empirical finding.
