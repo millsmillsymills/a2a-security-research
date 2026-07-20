@@ -126,9 +126,10 @@ def verify_card(
 ```
 
 > [**ellingson-a2a-signed-card**](https://github.com/millsmillsymills/ellingson-a2a-signed-card)
-> implements card signing end-to-end (key management, transparency log
-> submission, and verifier pinning). This catalog entry covers the configuration
-> surface; see that repository for a full reference implementation.
+> implements card signing end-to-end (keyless Sigstore signing — no long-lived
+> keys — transparency log submission, and verifier identity pinning). This
+> catalog entry covers the configuration surface; see that repository for a full
+> reference implementation.
 
 ---
 
@@ -540,8 +541,9 @@ def require_ct_presence(card_sha256: str, ct_log_client) -> None:
 ```
 
 > [**ellingson-a2a-signed-card**](https://github.com/millsmillsymills/ellingson-a2a-signed-card)
-> implements a full signed-card registry with transparency-log semantics. A
-> complete deployment additionally specifies the CT-style log format (the
+> implements keyless card signing with transparency-log semantics (Rekor
+> inclusion proofs carried in a Sigstore bundle). A complete deployment
+> additionally specifies the CT-style log format (the
 > JCS-canonical card bytes, signing-key `kid`, and timestamp logged above) and
 > inclusion-proof verification against a Merkle-tree log (RFC 9162). This section
 > provides the configuration surface; see that repository for an end-to-end
