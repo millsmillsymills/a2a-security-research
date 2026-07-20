@@ -81,6 +81,14 @@ All network targets are `127.0.0.1`. No external hosts are contacted. Demo
 servers are operator-owned daemon threads torn down in `finally` blocks when the
 demo process exits; nothing persists after the run.
 
+## Companion Repository
+
+[millsmillsymills/ellingson-a2a-signed-card](https://github.com/millsmillsymills/ellingson-a2a-signed-card)
+is the reference implementation of the card-signing and transparency controls
+cataloged here — a spec-native signed A2A v1.0 Agent Card whose trust is bound to
+DNSSEC/CT-attested delivery. This threat model identifies the gaps; that repository
+closes the signing and provenance ones end-to-end.
+
 ## Prior Art
 
 SpiderLabs (Trustwave) published an "Agent in the Middle" demonstration
