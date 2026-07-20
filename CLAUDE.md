@@ -11,8 +11,7 @@ that demonstrates each gap and its mitigation. All analysis is pinned to A2A spe
 v1.0.0 and `a2a-sdk==1.1.0`; see `SPEC-VERIFIED.md` and `docs/sdk-surface.md` for the
 verified version record and SDK shape notes.
 
-The repository root is this `a2a-threat-model/` directory (a subdirectory of the
-`a2a-research` project checkout), not the parent.
+The repository root is this `a2a-threat-model/` directory, not the parent directory.
 
 ## Commands
 
@@ -51,8 +50,10 @@ sit side by side:
   behavior, then the mitigation closing it, and `assert`s both outcomes so the demo
   doubles as a smoke test.
 - **mitigation** (`mitigation.py`) — the fix, callable independently of the exploit.
-- **vulnerable component** — `judge.py` (PoC #1) or `agent.py` + `metadata_server.py`
-  (PoC #2), the deliberately-insecure code under test.
+- **vulnerable component** — `judge.py` (PoC #1) or `agent.py` (PoC #2), the
+  deliberately-insecure code under test. (PoC #2 also ships `metadata_server.py`, a
+  loopback stand-in for the SSRF target — the attacker's victim resource, not code
+  being defended.)
 
 ### PoC #1 — routing hijack (`pocs/routing_hijack/`)
 
@@ -63,7 +64,7 @@ the prompt, so untrusted text can never influence selection.
 
 The judge runs against a **record/replay cassette** (`cassette.json`), keyed by a
 SHA-256 of `task + prompt`. `mode="replay"` (the default, used everywhere in tests and
-demos) needs no `ANTHROPIC_API_KEY`; `mode="live"` calls `claude-haiku-4-5` and updates
+demos) needs no `ANTHROPIC_API_KEY`; `mode="live"` calls `claude-haiku-4-5-20251001` and updates
 the cassette. Live results are validated before being recorded so a no-match never
 poisons the cassette. `_match_candidate` resolves free-text model output to exactly one
 candidate on `\b` word boundaries and **raises** on no-match or ambiguity — never
