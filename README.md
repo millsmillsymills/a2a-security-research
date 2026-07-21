@@ -85,9 +85,11 @@ demo process exits; nothing persists after the run.
 
 [millsmillsymills/ellingson-a2a-signed-card](https://github.com/millsmillsymills/ellingson-a2a-signed-card)
 is the reference implementation of the card-signing and transparency controls
-cataloged here — a spec-native signed A2A v1.0 Agent Card whose trust is bound to
-DNSSEC/CT-attested delivery. This threat model identifies the gaps; that repository
-closes the signing and provenance ones end-to-end.
+cataloged here — a spec-native signed A2A v1.0 Agent Card, signed keylessly with
+Sigstore (GitHub OIDC identity → Fulcio short-lived certificate → Rekor
+inclusion proof) and verified offline against a pinned signer identity. This
+threat model identifies the gaps; that repository closes the signing and
+provenance ones end-to-end.
 
 ## Prior Art
 
