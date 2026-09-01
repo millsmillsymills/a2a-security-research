@@ -24,6 +24,9 @@ shape notes.
 - [docs/control-catalog.md](docs/control-catalog.md) — one-page reference
   listing every control, its enforcement status, the configuration required to
   activate it, and the PoC that demonstrates the gap it closes.
+- [docs/tck-card-sign-response-runbook.md](docs/tck-card-sign-response-runbook.md)
+  - response and delivery runbook for coordinating the CARD-SIGN work across
+  the open A2A TCK contributions.
 
 ## Setup
 
