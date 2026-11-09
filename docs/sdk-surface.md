@@ -10,13 +10,20 @@ Installed: **`a2a-sdk[http-server]==1.1.0`** (pulls `protobuf`, `proto-plus`, `s
 import a2a.types as t
 from google.protobuf import json_format
 
-card = t.AgentCard(name="...", description="...", version="1.0.0",
-                   supported_interfaces=[t.AgentInterface(url="http://127.0.0.1:9101",
-                                                          protocol_binding="JSONRPC",
-                                                          protocol_version="1.0")],
-                   capabilities=t.AgentCapabilities(streaming=False),
-                   skills=[t.AgentSkill(id="fx", name="FX", description="...",
-                                        tags=["finance"], examples=["..."])])
+card = t.AgentCard(
+    name="...",
+    description="...",
+    version="1.0.0",
+    supported_interfaces=[
+        t.AgentInterface(
+            url="http://127.0.0.1:9101", protocol_binding="JSONRPC", protocol_version="1.0"
+        )
+    ],
+    capabilities=t.AgentCapabilities(streaming=False),
+    skills=[
+        t.AgentSkill(id="fx", name="FX", description="...", tags=["finance"], examples=["..."])
+    ],
+)
 body = json_format.MessageToJson(card)  # NOT card.model_dump_json()
 ```
 

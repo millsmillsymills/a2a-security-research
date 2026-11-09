@@ -49,12 +49,16 @@ def sign_card(card: t.AgentCard, private_key: Ed25519PrivateKey, kid: str) -> t.
 
     # JWS compact protected header
     header = {"alg": "EdDSA", "kid": kid}
-    protected_b64 = base64.urlsafe_b64encode(
-        json.dumps(header, separators=(",", ":")).encode()
-    ).rstrip(b"=").decode()
+    protected_b64 = (
+        base64.urlsafe_b64encode(json.dumps(header, separators=(",", ":")).encode())
+        .rstrip(b"=")
+        .decode()
+    )
 
     # Sign over ASCII(protected) + "." + BASE64URL(payload)
-    signing_input = f"{protected_b64}.{base64.urlsafe_b64encode(payload_bytes).rstrip(b'=').decode()}".encode()
+    signing_input = (
+        f"{protected_b64}.{base64.urlsafe_b64encode(payload_bytes).rstrip(b'=').decode()}".encode()
+    )
     raw_sig = private_key.sign(signing_input)
     sig_b64 = base64.urlsafe_b64encode(raw_sig).rstrip(b"=").decode()
 
@@ -105,16 +109,13 @@ def verify_card(
         protected_b64 = sig_entry.get("protected", "")
         sig_b64 = sig_entry.get("signature", "")
         try:
-            header = json.loads(
-                base64.urlsafe_b64decode(protected_b64 + "==")
-            )
+            header = json.loads(base64.urlsafe_b64decode(protected_b64 + "=="))
             kid = header.get("kid", "")
             pub_key = trusted_keys.get(kid)
             if pub_key is None:
                 continue  # key not pinned — skip
             signing_input = (
-                f"{protected_b64}."
-                f"{base64.urlsafe_b64encode(payload_bytes).rstrip(b'=').decode()}"
+                f"{protected_b64}.{base64.urlsafe_b64encode(payload_bytes).rstrip(b'=').decode()}"
             ).encode()
             raw_sig = base64.urlsafe_b64decode(sig_b64 + "==")
             pub_key.verify(raw_sig, signing_input)
@@ -278,9 +279,7 @@ card = t.AgentCard(
     ],
     capabilities=t.AgentCapabilities(streaming=False),
     # security_requirements references scheme names declared in security_schemes
-    security_requirements=[
-        t.SecurityRequirement(schemes={"bearer_oauth2": t.StringList(list=[])})
-    ],
+    security_requirements=[t.SecurityRequirement(schemes={"bearer_oauth2": t.StringList(list=[])})],
     skills=[],
 )
 ```
@@ -318,6 +317,7 @@ key; the token's `cnf.jkt` claim binds it to that key's thumbprint.
 # Validate the DPoP proof on the server side
 import hashlib, base64
 
+
 def validate_dpop_binding(dpop_proof_jwt: str, access_token: str) -> bool:
     """Return True if the DPoP proof is valid and matches the access token binding.
 
@@ -351,6 +351,7 @@ narrowly scoped token for each outbound call:
 
 ```python
 import secrets
+
 
 def issue_delegated_token(
     parent_claims: dict,
@@ -515,6 +516,7 @@ import hashlib
 import time
 import json
 import jcs  # RFC 8785
+
 
 def card_log_entry(card_dict: dict) -> dict:
     """Build a transparency-log entry for a card snapshot."""

@@ -4,19 +4,19 @@ version = "0.1.0"
 description = "An A2A threat model, control catalog, and two reproducible local PoCs."
 requires-python = ">=3.12"
 dependencies = [
-    "a2a-sdk[http-server]==1.1.0",
-    "anthropic==0.116.0",
-    "uvicorn==0.51.0",
+    "a2a-sdk[http-server]==1.1.2",
+    "anthropic==0.120.2",
+    "uvicorn==0.52.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest==9.1.1",
-    "ruff==0.15.21",
-    "ty==0.0.58",
+    "ruff==0.16.1",
+    "ty==0.0.65",
     "httpx2==2.12.0",  # starlette 1.3.1 TestClient deprecates plain httpx; httpx2 silences it
     "pip-audit==2.10.1",
-    "zizmor==1.26.1",
+    "zizmor==1.28.0",
 ]
 
 [tool.ruff]
